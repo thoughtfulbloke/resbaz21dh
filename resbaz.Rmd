@@ -8,7 +8,9 @@ output:
   word_document: default
 ---
 
-
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
 
 This is the tutorial document for the session "Text Analysis in R" being run by David Hood as part of Research Bazaar 2021: 5-7 July in Dunedin. The intended level is giving people comfortable with the general use of R (and the Tidyverse within R) exposure to some key ideas in text analysis.
 
@@ -57,8 +59,7 @@ nrc <- lexicon_nrc()
 
 During the session, we need to load the relevant packages for the session.
 
-
-```r
+```{r message=FALSE}
 library(dplyr)
 library(stringr)
 library(tidytext)
@@ -79,16 +80,14 @@ As a text file, it could be read in as one document then divided up into section
 
 For this tutorial we will read the document in as a series of lines.
 
-
-```r
+```{r}
 file_contents <- readLines("Mannering_1891.txt")
 ```
 
 Reading the file, because understanding the structure of what is being analysed is helpful, we might identify features we need to tidy up so the file meets our assumptions about organisation.
 
 For example, the electronic version of the book has a line break at the end of each line, rather than (like a Word document) a line break at the end of each paragraph, with paragraphs separated by a blank line. We can confirm that there are a lot of blank lines (rather than lines with spaces in them) by checking how many characters each line has.
-
-```r
+```{r}
 nchar(file_contents)[1:10]
 ```
 
@@ -96,16 +95,14 @@ We could try strategies of joining text back together, or of marking out which p
 
 As we are starting to create annotations and structure with our data, we will turn it from a vector of text, into a spreadsheet arrangement containing a column for the text, and other columns for specific annotations we are tracking.
 
-
-```r
+```{r}
 mannering <- data.frame(text = file_contents,
                         stringsAsFactors = FALSE)
 ```
 
 Line numbers can be added for posterity with a row_number() command from dplyr. Paragraphs can be recorded by testing if the the line is blank, then taking advantage of turning TRUE & FALSE test results of empty lines as 1 & 0 numbers to cumulatively sum the lines into paragraph groups.
 
-
-```r
+```{r}
 mannering <- mannering %>%
   mutate(line_n = row_number(),
          para_n = cumsum(nchar(text) == 0))
@@ -115,8 +112,7 @@ As well as lines and paragraphs, this book also contains chapters. If we want to
 
 We can check the occurrences of chapter in context with a grep() search command
 
-
-```r
+```{r}
 grep("chapter", mannering$text, value=TRUE, ignore.case = TRUE)
 ```
 
@@ -124,8 +120,7 @@ Group Discussion: *What can we tell about the use of the term "Chapter", how mig
 
 In implementing this in a similar way to the paragraphs, the function str_starts() from stringr might be helpful to use. Multiple different possible starts could be separated using the OR symbol | to mark out looking for different terms.
 
-
-```r
+```{r}
 # try extending your own code after the or (| symbol) for 
 # splitting chapters by the start if kubes
 # for those who need it, there is an example solution for the chapter
@@ -136,14 +131,15 @@ mannering <- mannering %>%
                                # replace the TRUE with your code
                               TRUE
                               ))
+
+
 ```
 
 As well as aggregating the input data to mark out larger units of meaning, we also often need to break the data down into individual semantic components. This is normally done by sending the data through a function that can pick out words, with the nuances being around what counts as a word/semantic unit (such as are emojis words, or are web addresses with dots and slashes between the parts one unit or several).
 
 In this case it is a english word form text and we will use traditional english rules in tokenising the text lines into word tokens.
 
-
-```r
+```{r}
 mannering_words <- mannering %>%
   unnest_tokens(output=word, input = text, token = "words") %>%
   mutate(word_n = row_number())
@@ -157,8 +153,7 @@ We aren't going back and changing things for this question, but it is an example
 
 Sometimes, you just want to count things up
 
-
-```r
+```{r}
 mannering_words %>%
   count(word) %>%
   filter(word == "aorangi") %>%
@@ -167,8 +162,7 @@ mannering_words %>%
 
 If you want a count by semantic unit, a common practice is to group the data by that semantic unit and then count within it
 
-
-```r
+```{r}
 mannering_words %>%
   group_by(chapter_n) %>%
   count(word) %>%
@@ -177,8 +171,7 @@ mannering_words %>%
 ```
 If you wanted the words as a percentage of the words in the chapter, you might divide the total for a word by the number of words in the chapter.
 
-
-```r
+```{r}
 mannering_words %>%
   group_by(chapter_n) %>%
   count(word) %>%
@@ -188,8 +181,7 @@ mannering_words %>%
 ```
 Because this method is counting words that are there, rather than words that are not, it is leaving out chapters 9 and 11. So another approach is counting the number of words that match the word we are looking for (technically counting test results rather than counting words as items)
 
-
-```r
+```{r}
 mannering_words %>%
   group_by(chapter_n) %>%
   summarise(percentage_aorangi = 100 * sum(word == "aorangi") /n()) %>%
@@ -199,8 +191,7 @@ If we wanted to compare frequency of Aorangi with Mount Cook, we would need to k
 
 A lot of visualizations of count data are ultimately bar graphs.
 
-
-```r
+```{r}
 # copy the preceeding code and have the data flow into the graph
 
   ggplot(aes(x=chapter_n,y=percentage_aorangi, fill=chapter_n)) + 
@@ -213,8 +204,7 @@ For working with preceding or following words, the dplyr package has the lead() 
 
 Using lag or lead is normally done within a semantic unit such as a sentence, as it makes little sense to imply a robust connection between the last word in one sentence and the first word of a following sentence, even though the words follow in order. For this tutorial, as we did not record sentence information about the data (see earlier discussion about limitations) we will use paragraphs instead to create a new column called "following" that uses lead to record the following word for each paragraph
 
-
-```r
+```{r}
 mannering_words <- mannering_words %>%
   group_by(para_n) %>% 
   mutate(following=lead(word)) %>%
@@ -223,8 +213,7 @@ mannering_words <- mannering_words %>%
 
 As an exercise, try taking the earlier aorangi counts, and calculating an additional column of mount_cook for use of Mount Cook. To run a logical test on more than one column, the and operator & may be helpful.
 
-
-```r
+```{r}
 mannering_words %>%
   summarise(aorangi = sum(word == "aorangi"),
             mount_cook = sum(word == "mount" & following == "cook")) 
@@ -233,12 +222,12 @@ mannering_words %>%
 # to develop code that tells the percentage for both in each chapter
 # for a subsequent exercise to work OK the two summary variables
 # should be named percentage_aorangi and percentage_mount_cook
+
 ```
 
 For showing change across a range for a limited set of things, a slope graph is a possible choice (which is in reality a line graph)
 
-
-```r
+```{r}
 # take the percentage aorangi vs mount cook and flow it into a slope graph.
 # as aorangi and mount_cook are columns, we need to combine them before graphing
 mannering_words %>%
@@ -253,14 +242,15 @@ mannering_words %>%
   geom_line(aes(x=chapter_n, y=percentage, colour=terms, linetype=terms)) + 
   geom_point(aes(x=chapter_n, y=percentage, colour=terms)) +
   theme_minimal()
+  
+
 ```
 
 If wanting to fuse together particular terms, such and Mount and Cook, so that they are treated as a single "word" (possibly by using a case_when statement creating a new term for certain word + following word combinations and using the original terms for the rest), you might want a report on common pairs in the document.
 
 If you have two (or more) columns, you can count combinations inside a count() function by listing all the column names, and there is an additional sort argument to list the commonest first.
 
-
-```r
+```{r}
 mannering_words %>% count(word, following, sort=TRUE)
 ```
 
@@ -268,8 +258,7 @@ Discussion: *If you write some code and look through the results, what is the ma
 
 Try to determine counts of the words prior to the word "peaks" 
 
-
-```r
+```{r}
 mannering_words %>% 
   # your code goes here
   count(word, following, sort=TRUE)
@@ -281,8 +270,7 @@ In text analysis Stop Words is the term for common words not of interest to the 
 
 However, removing stop words can effect things depending on when you remove them in the process- If you remove a bunch of words then look for the "next" word, it may not be the same next word as with all the data.
 
-
-```r
+```{r}
 mannering_words %>%
   anti_join(stop_words, by="word") %>%
   group_by(para_n) %>%
@@ -300,8 +288,7 @@ One approach is to stem terms into the shortest common form, by using a function
 
 Try taking the starting code and counting the three commonest (stemmed) words per chapter.
 
-
-```r
+```{r}
 mannering_words %>%
   mutate(stemmed = stemDocument(word, language = "english")) %>%
   # your code goes here
@@ -315,19 +302,19 @@ Stop words was an example of a applying a list of words that someone has created
 
 For this example we are using the nrc sentiment corpus, in which words have been labelled with sentiment categories. We apply the labels and count up the use.
 
-
-```r
+```{r}
 nrc <- lexicon_nrc()
 mannering_words %>%
   inner_join(nrc) %>%
   count(chapter_n,sentiment, sort=TRUE)
+
 ```
 
 Because an inner_join is "for words that appear in both the data and the sentiment lexicon" the results can be very sensitive to the degree of matching between the words in the data and the lexicon
 
-
-```r
+```{r}
 # try the previous code but with a left_join rather than an inner_join
+
 ```
 
 Discussion: *What strategies might be used to change the amount of unmatched material? When might they be needed? What are the consequences of those strategies.*
@@ -336,8 +323,7 @@ Discussion: *What strategies might be used to change the amount of unmatched mat
 
 If comparing several documents, sometimes it is not just how often words appear (term frequency), of interest is words that are more common when compared to other documents. A frequently used method for doing this is TF-IDF (Term Frequncy - Inverse Document Frequency).
 
-
-```r
+```{r}
 mannering_words %>%
   count(chapter_n, word) %>%
   bind_tf_idf(word, chapter_n, n) %>% 
@@ -352,8 +338,8 @@ A common format for holding the data in when doing comparisons between documents
 One such special function in LDA (Latent Dirichlet allocation), which assumes topics have words in common, and documents have topics in common, then (for a given number of limited topics specified by you) tries to find the relationship between topics and documents.
 
 
+```{r}
 
-```r
 mannering_dtm <- mannering_words %>%
   count(chapter_n, word) %>%
   cast_dtm(chapter_n, word, n)
@@ -364,8 +350,7 @@ chapter_topics <- tidy(mannering_lda, matrix = "gamma")
 
 Because enforcing 2 topics gives us two dimensions, we can plot our data on that basis, but we need to rearrange the data so we have a column for each dimension we want to plot along
 
-
-```r
+```{r}
 chapter_topics %>%
   mutate(topic = paste0("topic_",topic)) %>%
   spread(key=topic, value=gamma, fill = 0) %>%
@@ -373,6 +358,7 @@ chapter_topics %>%
   xlim(-.25,1.25) + ylim(-.25,1.25) +
   geom_point(size=2) + geom_text_repel(max.overlaps = 20, box.padding = 5) +
   theme_void()
+
 ```
 
 
@@ -380,20 +366,19 @@ chapter_topics %>%
 
 ### A chapter splitting solution
 
-
-```r
+```{r}
 mannering <- mannering %>%
   mutate(chapter_n = cumsum(str_starts(text, fixed("CHAPTER")) |
                                str_starts(text, fixed("L’ENVOI")) |
                                str_starts(text, fixed("APPENDIX")) |
                                str_starts(text, fixed("_A SHORT GLOSSARY")) |
                                str_starts(text, fixed("Transcriber’s note"))))
+
 ```
 
 ### Percentage of Mount Cook use by chapter
 
-
-```r
+```{r}
 mannering_words %>%
   group_by(chapter_n) %>%
   summarise(percentage_aorangi = 100 * sum(word == "aorangi") /n(),
@@ -405,8 +390,7 @@ mannering_words %>%
 
 ### Words before peak solution
 
-
-```r
+```{r}
 mannering_words %>% 
   filter(following == "peaks") %>%
   count(word, following, sort=TRUE)
@@ -414,8 +398,7 @@ mannering_words %>%
 
 ### example solution 3 commonest stemmed words per chapter
 
-
-```r
+```{r}
 mannering_words %>%
   mutate(stemmed = stemDocument(word, language = "english")) %>%
   group_by(chapter_n) %>%
